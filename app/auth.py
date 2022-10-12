@@ -26,15 +26,15 @@ def activate():
             
             db = get_db()
             attempt = db.execute(
-                'select id from user', (number, utils.U_UNCONFIRMED)
+                'SELECT * FROM user WHERE id = ?', (number, utils.U_UNCONFIRMED)
             ).fetchone()
 
             if attempt is not None:
                 db.execute(
-                    'SELECT id FROM user', (utils.U_CONFIRMED, attempt['id'])
+                    'SELECT id FROM user WHERE id = ?', (utils.U_CONFIRMED, attempt['id'])
                 )
                 db.execute(
-                    'SELECT username, password, salt, email FROM user', (attempt['username'], attempt['password'], attempt['salt'], attempt['email'])
+                    'INSERT INTO user (username, password, salt, email) VALUES (?,?,?,?)', (attempt['username'], attempt['password'], attempt['salt'], attempt['email'])
                 )
                 db.commit()
 
@@ -44,7 +44,7 @@ def activate():
         return redirect(url_for('auth.login'))
 
 
-@bp.route('/register', methods=['POST','GET'])
+@bp.route('/register', methods=('GET', 'POST'))
 def register():
     try:
         if g.user:
@@ -73,10 +73,10 @@ def register():
                 flash(error)
                 return render_template('auth/register.html')
 
-            if db.execute('SELECT username FROM user', (username,)).fetchone() is not None:
+            if db.execute('SELECT username FROM user WHERE username = ?', (username,)).fetchone() is not None:
                 error = 'User {} is already registered.'.format(username)
                 flash(error)
-                return render_template('auth/login.html')
+                return render_template('auth/register.html')
             
             if (not email or (not utils.isEmailValid(email))):
                 error =  'Email address invalid.'
@@ -86,7 +86,7 @@ def register():
             if db.execute('SELECT id FROM user WHERE email = ?', (email,)).fetchone() is not None:
                 error =  'Email {} is already registered.'.format(email)
                 flash(error)
-                return render_template('auth/login.html')
+                return render_template('auth/register.html')
             
             if (not utils.isPasswordValid(password)):
                 error = 'Password should contain at least a lowercase letter, an uppercase letter and a number with 8 characters long'
@@ -98,7 +98,7 @@ def register():
             number = hex(random.getrandbits(512))[2:]
 
             db.execute(
-                'SELECT username,salt, email FROM user',
+                'INSERT INTO user (username, password, salt, email) VALUES (?,?,?,?)',
                 (number, utils.U_UNCONFIRMED, username, hashP, salt, email)
             )
             db.commit()
@@ -119,7 +119,7 @@ def register():
         return render_template('auth/register.html')
 
     
-@bp.route('/confirm', methods=['POST','GET'])
+@bp.route('/confirm', methods=('GET', 'POST'))
 def confirm():
     try:
         if g.user:
@@ -221,11 +221,11 @@ def forgot():
                 number = hex(random.getrandbits(512))[2:]
                 
                 db.execute(
-                    'SELECT id FROM forgotlink WHERE id=?',
+                    'SELECT * FROM forgotlink WHERE id=?',
                     (utils.F_INACTIVE, user['id'])
                 )
                 db.execute(
-                    'SELECT id, validuntil FROM forgotlink WHERE id=?',
+                    'SELECT * FROM forgotlink WHERE id=?',
                     (user['id'], number, utils.F_ACTIVE)
                 )
                 db.commit()
@@ -248,7 +248,7 @@ def forgot():
         return render_template('auth/login.html')
 
 
-@bp.route('/login', methods=['POST','GET'])
+@bp.route('/login', methods=('GET', 'POST'))
 def login():
     try:
         if g.user:
@@ -293,19 +293,19 @@ def login():
 
 @bp.before_app_request
 def load_logged_in_user():
-    user_id = session.get('id')
+    user_id = session.get('user_id')
 
     if user_id is None:
         g.user = None
     else:
         g.user = get_db().execute(
-            'SELECT id FROM user WHERE id = ?', (user_id,)
+            'SELECT * FROM user WHERE id = ?', (user_id,)
         ).fetchone()
 
         
 @bp.route('/logout')
 def logout():
-    session.get('id')
+    session.clear()
     return redirect(url_for('auth.login'))
 
 

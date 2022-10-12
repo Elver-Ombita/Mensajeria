@@ -29,9 +29,9 @@ def show():
 def send():
     if request.method == 'POST':        
         from_id = g.user['id']
-        to_username = g.user['username']
-        subject = g.user['subject']
-        body = g.user['body']
+        to_username = request.form['username']
+        subject = request.form['subject']
+        body = request.form['body']
 
         db = get_db()
        
@@ -51,7 +51,7 @@ def send():
         userto = None 
         
         userto = db.execute(
-            'SELECT username FROM message JOIN user WHERE to_id=user.id', (to_username,)
+            'SELECT * FROM user WHERE username = ?', (to_username,)
         ).fetchone()
         
         if userto is None:
@@ -62,7 +62,7 @@ def send():
         else:
             db = get_db()
             db.execute(
-                'SELECT id, to_id, subject, body, username FROM message JOIN user WHERE to_id=user.id',
+                'INSERT INTO message (from_id, to_id, subject, body) VALUES (?, ?, ?, ?)',
                 (g.user['id'], userto['id'], subject, body)
             )
             db.commit()
